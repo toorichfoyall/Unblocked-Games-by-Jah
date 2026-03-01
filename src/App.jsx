@@ -1,20 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gamepad2, X, Maximize2, Search, ExternalLink } from 'lucide-react';
+import { Gamepad2, X, Maximize2, Search, ExternalLink, Filter, ArrowUpDown } from 'lucide-react';
 import gamesData from './games.json';
 
 export default function App() {
   const [selectedGame, setSelectedGame] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('title-asc');
   const [filteredGames, setFilteredGames] = useState(gamesData);
 
+  const categories = useMemo(() => {
+    const cats = ['All', ...new Set(gamesData.map(game => game.category))];
+    return cats;
+  }, []);
+
   useEffect(() => {
-    const filtered = gamesData.filter(game =>
-      game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      game.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    let filtered = gamesData.filter(game => {
+      const matchesSearch = game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          game.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'All' || game.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+
+    // Sorting
+    filtered.sort((a, b) => {
+      if (sortBy === 'title-asc') return a.title.localeCompare(b.title);
+      if (sortBy === 'title-desc') return b.title.localeCompare(a.title);
+      if (sortBy === 'category') return a.category.localeCompare(b.category);
+      return 0;
+    });
+
     setFilteredGames(filtered);
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory, sortBy]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 font-sans selection:bg-emerald-500/30">
@@ -44,16 +62,53 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4 text-sm font-medium text-zinc-400">
-            <span className="hidden md:inline">v1.0.0</span>
+            <span className="hidden md:inline">v1.1.0</span>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Featured Games</h2>
-          <p className="text-zinc-500">Hand-picked unblocked games for your entertainment.</p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Featured Games</h2>
+            <p className="text-zinc-500">Hand-picked unblocked games for your entertainment.</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Category Filter */}
+            <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+              {categories.map(category => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    selectedCategory === category 
+                      ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' 
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="relative group">
+              <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10 text-sm font-medium text-zinc-400 hover:text-white hover:border-white/20 transition-all cursor-pointer">
+                <ArrowUpDown className="w-4 h-4" />
+                <select 
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-transparent focus:outline-none cursor-pointer appearance-none pr-4"
+                >
+                  <option value="title-asc" className="bg-[#141414]">A-Z</option>
+                  <option value="title-desc" className="bg-[#141414]">Z-A</option>
+                  <option value="category" className="bg-[#141414]">Category</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
 
         {filteredGames.length > 0 ? (
@@ -75,6 +130,11 @@ export default function App() {
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                  <div className="absolute top-3 left-3">
+                    <span className="px-2 py-1 bg-black/50 backdrop-blur-md border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                      {game.category}
+                    </span>
+                  </div>
                   <div className="absolute bottom-3 left-3 right-3">
                     <h3 className="font-bold text-lg leading-tight">{game.title}</h3>
                   </div>
@@ -96,7 +156,7 @@ export default function App() {
               <Search className="w-8 h-8 text-zinc-600" />
             </div>
             <h3 className="text-xl font-bold mb-1">No games found</h3>
-            <p className="text-zinc-500">Try adjusting your search query.</p>
+            <p className="text-zinc-500">Try adjusting your filters or search query.</p>
           </div>
         )}
       </main>
@@ -140,12 +200,15 @@ export default function App() {
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/5">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-xl font-bold">{selectedGame.title}</h3>
+                  <div className="flex flex-col">
+                    <h3 className="text-xl font-bold leading-none">{selectedGame.title}</h3>
+                    <span className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mt-1">{selectedGame.category}</span>
+                  </div>
                   <a 
                     href={selectedGame.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-zinc-500 hover:text-emerald-500 transition-colors"
+                    className="text-zinc-500 hover:text-emerald-500 transition-colors ml-2"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </a>
